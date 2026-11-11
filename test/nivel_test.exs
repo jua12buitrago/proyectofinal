@@ -11,7 +11,7 @@ defmodule Trivia.NivelTest do
     ["2026-10-01T10:00:00Z|P-1001|ciencia|basico|pedro|pedro=#{puntaje},bot_1=0,bot_2=0"]
   end
 
-  describe "prueba 7: nivel del jugador" do
+  describe "prueba 7" do
     test "los valores justo en los umbrales" do
       assert Nivel.nivel_en_tema(historial(59), "pedro", "ciencia") == :basico
       assert Nivel.nivel_en_tema(historial(60), "pedro", "ciencia") == :intermedio
