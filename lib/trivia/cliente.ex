@@ -57,16 +57,14 @@ defmodule Trivia.Cliente do
     end
   end
 
-  # Nodo del servidor: el indicado, o servidor@<equipo de este nodo>.
   defp nodo_servidor(nil) do
-    equipo = node() |> Atom.to_string() |> String.split("@") |> List.last()
+    equipo = node() |> to_string() |> String.split("@") |> List.last()
     String.to_atom("servidor@" <> equipo)
   end
 
   defp nodo_servidor(nombre) when is_binary(nombre), do: String.to_atom(nombre)
   defp nodo_servidor(nodo) when is_atom(nodo), do: nodo
 
-  # Lee una línea, la ejecuta y vuelve a leer, hasta que el jugador salga.
   defp bucle(contexto) do
     case IO.gets("trivia> ") do
       :eof ->
@@ -76,14 +74,16 @@ defmodule Trivia.Cliente do
         cerrar(contexto)
 
       linea ->
-        case ejecutar_linea(String.trim(linea), contexto) do
+        linea
+        |> String.trim()
+        |> ejecutar_linea(contexto)
+        |> case do
           :salir -> cerrar(contexto)
           :seguir -> bucle(contexto)
         end
     end
   end
 
-  # Al salir se cierra la sesión para liberar al usuario y su partida.
   defp cerrar(contexto), do: peticion(contexto, :disconnect)
 
   defp ejecutar_linea("", _contexto), do: :seguir
@@ -116,19 +116,15 @@ defmodule Trivia.Cliente do
   Si el servidor no está disponible devuelve
   `{:error, %Trivia.Errores.ServidorNoDisponible{}}` en lugar de fallar.
   """
-  def peticion(contexto, comando) do
-    if Node.connect(contexto.nodo) == true do
+  def peticion(%{nodo: nodo, receptor: receptor}, comando) do
+    if Node.connect(nodo) do
       try do
-        GenServer.call(
-          {Trivia.Servidor, contexto.nodo},
-          {:peticion, contexto.receptor, comando},
-          15_000
-        )
+        GenServer.call({Trivia.Servidor, nodo}, {:peticion, receptor, comando}, 15_000)
       catch
-        :exit, _razon -> {:error, %Errores.ServidorNoDisponible{nodo: contexto.nodo}}
+        :exit, _razon -> {:error, %Errores.ServidorNoDisponible{nodo: nodo}}
       end
     else
-      {:error, %Errores.ServidorNoDisponible{nodo: contexto.nodo}}
+      {:error, %Errores.ServidorNoDisponible{nodo: nodo}}
     end
   end
 
@@ -142,25 +138,63 @@ defmodule Trivia.Cliente do
   """
   def parsear(linea) do
     case String.split(linea) do
-      ["help"] -> :ayuda
-      ["exit"] -> :salir
-      ["quit"] -> :salir
-      ["connect", usuario, clave] -> {:ok, {:connect, usuario, clave}}
-      ["connect" | _] -> uso("connect <usuario> <clave>")
-      ["disconnect"] -> {:ok, :disconnect}
-      ["create_game" | argumentos] -> parsear_create_game(argumentos)
-      ["add_bot", dificultad] -> parsear_add_bot(dificultad)
-      ["add_bot" | _] -> uso("add_bot <facil|dificil>")
-      ["start_game"] -> {:ok, :start_game}
-      ["leave_game"] -> {:ok, :leave_game}
-      ["answer", letra] -> {:ok, {:answer, letra}}
-      ["answer" | _] -> uso("answer <A|B|C|D>")
-      ["score"] -> {:ok, :score}
-      ["ranking"] -> {:ok, {:ranking, nil}}
-      ["ranking", tema] -> {:ok, {:ranking, String.downcase(tema)}}
-      ["ranking" | _] -> uso("ranking [tema]")
-      [comando | _] -> {:error, %Errores.ComandoInvalido{detalle: "Comando desconocido: #{comando}. Escriba help."}}
-      [] -> uso("help")
+      ["help"] ->
+        :ayuda
+
+      ["exit"] ->
+        :salir
+
+      ["quit"] ->
+        :salir
+
+      ["connect", usuario, clave] ->
+        {:ok, {:connect, usuario, clave}}
+
+      ["connect" | _] ->
+        uso("connect <usuario> <clave>")
+
+      ["disconnect"] ->
+        {:ok, :disconnect}
+
+      ["create_game" | argumentos] ->
+        parsear_create_game(argumentos)
+
+      ["add_bot", dificultad] ->
+        parsear_add_bot(dificultad)
+
+      ["add_bot" | _] ->
+        uso("add_bot <facil|dificil>")
+
+      ["start_game"] ->
+        {:ok, :start_game}
+
+      ["leave_game"] ->
+        {:ok, :leave_game}
+
+      ["answer", letra] ->
+        {:ok, {:answer, letra}}
+
+      ["answer" | _] ->
+        uso("answer <A|B|C|D>")
+
+      ["score"] ->
+        {:ok, :score}
+
+      ["ranking"] ->
+        {:ok, {:ranking, nil}}
+
+      ["ranking", tema] ->
+        {:ok, {:ranking, String.downcase(tema)}}
+
+      ["ranking" | _] ->
+        uso("ranking [tema]")
+
+      [comando | _] ->
+        {:error,
+         %Errores.ComandoInvalido{detalle: "Comando desconocido: #{comando}. Escriba help."}}
+
+      [] ->
+        uso("help")
     end
   end
 
@@ -172,25 +206,23 @@ defmodule Trivia.Cliente do
     end
   end
 
-  # create_game tema=<tema> preguntas=<n> tiempo=<segundos>, en cualquier orden.
   defp parsear_create_game(argumentos) do
-    pares = Enum.map(argumentos, fn argumento -> String.split(argumento, "=") end)
+    pares = Enum.map(argumentos, &String.split(&1, "="))
     tema = valor_de(pares, "tema")
     preguntas = a_entero(valor_de(pares, "preguntas"))
     tiempo = a_entero(valor_de(pares, "tiempo"))
 
-    if tema in [nil, ""] or preguntas == nil or tiempo == nil do
+    if tema in [nil, ""] or is_nil(preguntas) or is_nil(tiempo) do
       uso("create_game tema=<tema> preguntas=<n> tiempo=<segundos>")
     else
       {:ok, {:create_game, String.downcase(tema), preguntas, tiempo}}
     end
   end
 
-  # Busca el valor de una clave en la lista de pares [clave, valor].
   defp valor_de(pares, clave) do
-    case Enum.find(pares, fn par -> hd(par) == clave end) do
+    case Enum.find(pares, &(hd(&1) == clave)) do
       [_clave, valor] -> valor
-      _otro -> nil
+      nil -> nil
     end
   end
 
@@ -203,13 +235,10 @@ defmodule Trivia.Cliente do
     end
   end
 
-  defp uso(forma) do
-    {:error, %Errores.ComandoInvalido{detalle: "Uso: #{forma}"}}
-  end
+  defp uso(forma), do: {:error, %Errores.ComandoInvalido{detalle: "Uso: #{forma}"}}
 
   # ── Presentación de las respuestas del servidor ──────────────────────
 
-  @doc "Texto que se muestra al jugador como respuesta a un comando."
   def formatear(_comando, {:error, error}), do: "✖ " <> Exception.message(error)
 
   def formatear({:connect, _usuario, _clave}, {:ok, %{usuario: usuario, tipo: tipo}}) do
@@ -241,15 +270,13 @@ defmodule Trivia.Cliente do
 
   def formatear(:leave_game, {:ok, :cancelada}), do: "✔ Partida cancelada. Ya puede crear otra."
 
-  def formatear(:leave_game, {:ok, :finalizada}) do
-    "✔ Abandonó la partida; el resultado quedó registrado con los puntos obtenidos."
-  end
+  def formatear(:leave_game, {:ok, :finalizada}),
+    do: "✔ Abandonó la partida; el resultado quedó registrado con los puntos obtenidos."
 
   def formatear({:answer, _letra}, {:ok, :registrada}), do: "✔ Respuesta registrada."
 
-  def formatear({:answer, _letra}, {:ok, :ignorada}) do
-    "Ya había respondido esta pregunta; la respuesta se ignora (sin penalización)."
-  end
+  def formatear({:answer, _letra}, {:ok, :ignorada}),
+    do: "Ya había respondido esta pregunta; la respuesta se ignora (sin penalización)."
 
   def formatear(:score, {:ok, datos}) do
     encabezado = [
