@@ -36,8 +36,10 @@ defmodule Trivia.Nivel do
   Un tema nunca jugado cuenta como 0 puntos, así que es básico.
   """
   def nivel_en_tema(lineas, usuario, tema) do
-    puntajes = GestorJugadores.puntaje_por_tema(lineas, usuario)
-    por_puntaje(Map.get(puntajes, tema, 0))
+    lineas
+    |> GestorJugadores.puntaje_por_tema(usuario)
+    |> Map.get(tema, 0)
+    |> por_puntaje()
   end
 
   @doc """
@@ -53,22 +55,17 @@ defmodule Trivia.Nivel do
       %{basico: 0, intermedio: 3, avanzado: 7}
   """
   def reparto(nivel, total) do
-    {p_basico, p_intermedio, p_avanzado} = porcentajes(nivel)
+    base =
+      for {n, p} <- Enum.zip(@niveles, porcentajes(nivel)), into: %{} do
+        {n, div(total * p, 100)}
+      end
 
-    basico = div(total * p_basico, 100)
-    intermedio = div(total * p_intermedio, 100)
-    avanzado = div(total * p_avanzado, 100)
-    sobran = total - basico - intermedio - avanzado
-
-    case nivel do
-      :basico -> %{basico: basico + sobran, intermedio: intermedio, avanzado: avanzado}
-      :intermedio -> %{basico: basico, intermedio: intermedio + sobran, avanzado: avanzado}
-      :avanzado -> %{basico: basico, intermedio: intermedio, avanzado: avanzado + sobran}
-    end
+    sobran = total - (base.basico + base.intermedio + base.avanzado)
+    Map.update!(base, nivel, &(&1 + sobran))
   end
 
-  # Porcentajes {básico, intermedio, avanzado} según el nivel del jugador.
-  defp porcentajes(:basico), do: {70, 30, 0}
-  defp porcentajes(:intermedio), do: {20, 60, 20}
-  defp porcentajes(:avanzado), do: {0, 30, 70}
+  # Lista de porcentajes [básico, intermedio, avanzado] según el nivel del jugador.
+  defp porcentajes(:basico), do: [70, 30, 0]
+  defp porcentajes(:intermedio), do: [20, 60, 20]
+  defp porcentajes(:avanzado), do: [0, 30, 70]
 end
