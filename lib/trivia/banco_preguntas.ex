@@ -3,12 +3,12 @@ defmodule Trivia.BancoPreguntas do
   Banco de preguntas en memoria y sorteo por tema y nivel (secciones 3.2, 6.1
   y 8.1).
 
-  Al arrancar pide a `Trivia.Persistencia` el contenido de `data/questions.json`
-  y lo guarda en memoria. Cada pregunta es un mapa con las claves `:tema`,
-  `:nivel` (átomo), `:enunciado`, `:opciones` (lista `[{"A", texto}, ...]`) y
-  `:respuesta` (una de las letras A, B, C o D).
+  Al arrancar pide a Trivia.Persistencia el contenido de data/questions.json
+  y lo guarda en memoria. Cada pregunta es un mapa con las claves :tema,
+  :nivel (átomo), :enunciado, :opciones (lista [{"A", texto}, ...]) y
+  :respuesta (una de las letras A, B, C o D).
 
-  Las funciones que terminan en `_en` son puras (reciben el banco como
+  Las funciones que terminan en _en son puras (reciben el banco como
   argumento) y son las que se prueban con ExUnit.
 
   - autor: Juan Manuel Castaño Buitrago
@@ -20,23 +20,23 @@ defmodule Trivia.BancoPreguntas do
 
   # ── API pública ──────────────────────────────────────────────────────
 
-  @doc "Arranca el banco. Con `banco: lista` usa esa lista en vez del archivo."
+  @doc "Arranca el banco. Con banco: lista usa esa lista en vez del archivo."
   def start_link(opciones \\ []) do
-    GenServer.start_link(__MODULE__, opciones, name: __MODULE__)
+    GenServer.start_link(_MODULE, opciones, name: __MODULE_)
   end
 
   @doc "Revisa que el tema exista y tenga preguntas suficientes para el reparto."
   def verificar(tema, nivel, total) do
-    GenServer.call(__MODULE__, {:verificar, tema, nivel, total})
+    GenServer.call(_MODULE_, {:verificar, tema, nivel, total})
   end
 
-  @doc "Sortea las preguntas de una partida: `{:ok, lista}` o `{:error, error}`."
+  @doc "Sortea las preguntas de una partida: {:ok, lista} o {:error, error}."
   def sortear(tema, nivel, total) do
-    GenServer.call(__MODULE__, {:sortear, tema, nivel, total})
+    GenServer.call(_MODULE_, {:sortear, tema, nivel, total})
   end
 
   @doc "Lista de los temas del banco, en orden alfabético."
-  def temas, do: GenServer.call(__MODULE__, :temas)
+  def temas, do: GenServer.call(_MODULE_, :temas)
 
   # ── Funciones puras ──────────────────────────────────────────────────
 
@@ -65,11 +65,11 @@ defmodule Trivia.BancoPreguntas do
   def verificar_en(banco, tema, nivel, total) do
     del_tema = Enum.filter(banco, fn pregunta -> pregunta.tema == tema end)
 
-    if del_tema == [] do
-      {:error, %Errores.TemaInexistente{tema: tema}}
-    else
-      necesarias = Nivel.reparto(nivel, total)
-      revisar_niveles(del_tema, tema, necesarias, Nivel.niveles())
+    case del_tema do
+      [] -> {:error, %Errores.TemaInexistente{tema: tema}}
+      _ ->
+        necesarias = Nivel.reparto(nivel, total)
+        revisar_niveles(del_tema, tema, necesarias, Nivel.niveles())
     end
   end
 
@@ -80,16 +80,17 @@ defmodule Trivia.BancoPreguntas do
     hay = Enum.count(del_tema, fn pregunta -> pregunta.nivel == nivel end)
     necesita = Map.get(necesarias, nivel)
 
-    if hay < necesita do
-      {:error,
-       %Errores.PreguntasInsuficientes{
-         tema: tema,
-         nivel: nivel,
-         necesarias: necesita,
-         disponibles: hay
-       }}
-    else
-      revisar_niveles(del_tema, tema, necesarias, resto)
+    cond do
+      hay < necesita ->
+        {:error,
+         %Errores.PreguntasInsuficientes{
+           tema: tema,
+           nivel: nivel,
+           necesarias: necesita,
+           disponibles: hay
+         }}
+      true ->
+        revisar_niveles(del_tema, tema, necesarias, resto)
     end
   end
 
@@ -104,12 +105,19 @@ defmodule Trivia.BancoPreguntas do
       reparto = Nivel.reparto(nivel, total)
 
       preguntas =
-        Enum.flat_map(Nivel.niveles(), fn nivel_actual ->
-          banco
-          |> Enum.filter(fn p -> p.tema == tema and p.nivel == nivel_actual end)
-          |> Enum.shuffle()
-          |> Enum.take(Map.get(reparto, nivel_actual))
-        end)
+        for nivel_actual <- Nivel.niveles(),
+            cantidad = Map.get(reparto, nivel_actual),
+            cantidad > 0,
+            reduce: [] do
+          acc ->
+            seleccionadas =
+              banco
+              |> Enum.filter(&(&1.tema == tema and &1.nivel == nivel_actual))
+              |> Enum.shuffle()
+              |> Enum.take(cantidad)
+
+            acc ++ seleccionadas
+        end
 
       {:ok, preguntas}
     end
@@ -135,7 +143,12 @@ defmodule Trivia.BancoPreguntas do
   end
 
   def handle_call(:temas, _from, banco) do
-    temas = banco |> Enum.map(fn pregunta -> pregunta.tema end) |> Enum.uniq() |> Enum.sort()
+    temas =
+      banco
+      |> Enum.map(&(&1.tema))
+      |> Enum.uniq()
+      |> Enum.sort()
+
     {:reply, temas, banco}
   end
 
