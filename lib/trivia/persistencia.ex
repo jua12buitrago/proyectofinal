@@ -5,12 +5,12 @@ defmodule Trivia.Persistencia do
 
   Como todas las lecturas y escrituras pasan por este GenServer, dos partidas
   que terminan al mismo tiempo, o dos jugadores que se registran a la vez, no
-  mezclan sus escrituras sobre `users.json` o `results.log`.
+  mezclan sus escrituras sobre users.json o results.log.
 
-  Archivos (dentro de la carpeta `data/`):
-  - `users.json`: lista de objetos con `usuario` y `clave`
-  - `questions.json`: banco de preguntas
-  - `results.log`: una línea de texto por partida terminada
+  Archivos (dentro de la carpeta data/):
+  - users.json: lista de objetos con usuario y clave
+  - questions.json: banco de preguntas
+  - results.log: una línea de texto por partida terminada
 
   - autor: Juan Manuel Castaño Buitrago
   - fecha: Noviembre del 2026
@@ -18,32 +18,17 @@ defmodule Trivia.Persistencia do
   use GenServer
 
   # Carpeta data/ del proyecto, calculada a partir de este archivo.
-  @carpeta Path.expand("../../data", __DIR__)
+  @carpeta Path.expand("../../data", _DIR_)
 
   # ── API pública ──────────────────────────────────────────────────────
 
-  def start_link(opciones \\ []) do
-    GenServer.start_link(__MODULE__, opciones, name: __MODULE__)
-  end
+  def start_link(opciones \\ []), do: GenServer.start_link(_MODULE, opciones, name: __MODULE_)
 
-  @doc "Mapa con los usuarios registrados: `%{usuario => clave}`."
-  def usuarios, do: GenServer.call(__MODULE__, :usuarios)
-
-  @doc "Guarda un usuario nuevo en users.json."
-  def guardar_usuario(usuario, clave) do
-    GenServer.call(__MODULE__, {:guardar_usuario, usuario, clave})
-  end
-
-  @doc "Lista de preguntas tal como están en questions.json."
-  def preguntas, do: GenServer.call(__MODULE__, :preguntas)
-
-  @doc "Agrega una línea al final de results.log."
-  def agregar_resultado(linea) do
-    GenServer.call(__MODULE__, {:agregar_resultado, linea})
-  end
-
-  @doc "Lista de líneas del historial (results.log)."
-  def historial, do: GenServer.call(__MODULE__, :historial)
+  def usuarios, do: GenServer.call(_MODULE_, :usuarios)
+  def guardar_usuario(usuario, clave), do: GenServer.call(_MODULE_, {:guardar_usuario, usuario, clave})
+  def preguntas, do: GenServer.call(_MODULE_, :preguntas)
+  def agregar_resultado(linea), do: GenServer.call(_MODULE_, {:agregar_resultado, linea})
+  def historial, do: GenServer.call(_MODULE_, :historial)
 
   # ── Callbacks ────────────────────────────────────────────────────────
 
@@ -62,7 +47,11 @@ defmodule Trivia.Persistencia do
   def handle_call({:guardar_usuario, usuario, clave}, _from, carpeta) do
     usuarios = Map.put(leer_usuarios(carpeta), usuario, clave)
     lista = for {nombre, pass} <- usuarios, do: %{"usuario" => nombre, "clave" => pass}
-    File.write!(Path.join(carpeta, "users.json"), Jason.encode!(lista, pretty: true))
+
+    carpeta
+    |> Path.join("users.json")
+    |> File.write!(Jason.encode!(lista, pretty: true))
+
     {:reply, :ok, carpeta}
   end
 
@@ -77,25 +66,31 @@ defmodule Trivia.Persistencia do
   end
 
   def handle_call({:agregar_resultado, linea}, _from, carpeta) do
-    resultado = File.write(Path.join(carpeta, "results.log"), linea <> "\n", [:append])
+    resultado =
+      carpeta
+      |> Path.join("results.log")
+      |> File.write(linea <> "\n", [:append])
+
     {:reply, resultado, carpeta}
   end
 
   def handle_call(:historial, _from, carpeta) do
     ruta = Path.join(carpeta, "results.log")
 
-    lineas =
-      if File.exists?(ruta) do
-        ruta
-        |> File.stream!()
-        |> Stream.map(&String.trim/1)
-        |> Stream.reject(fn linea -> linea == "" end)
-        |> Enum.to_list()
-      else
-        []
-      end
+    case File.read(ruta) do
+      {:ok, _contenido} ->
+        lineas =
+          ruta
+          |> File.stream!()
+          |> Stream.map(&String.trim/1)
+          |> Stream.reject(&(&1 == ""))
+          |> Enum.to_list()
 
-    {:reply, lineas, carpeta}
+        {:reply, lineas, carpeta}
+
+      {:error, :enoent} ->
+        {:reply, [], carpeta}
+    end
   end
 
   # ── Funciones privadas ───────────────────────────────────────────────
@@ -104,14 +99,14 @@ defmodule Trivia.Persistencia do
   defp leer_usuarios(carpeta) do
     ruta = Path.join(carpeta, "users.json")
 
-    if File.exists?(ruta) do
-      ruta
-      |> File.read!()
-      |> Jason.decode!()
-      |> Enum.map(fn u -> {u["usuario"], u["clave"]} end)
-      |> Map.new()
-    else
-      %{}
+    case File.read(ruta) do
+      {:ok, contenido} ->
+        contenido
+        |> Jason.decode!()
+        |> Map.new(&{&1["usuario"], &1["clave"]})
+
+      {:error, :enoent} ->
+        %{}
     end
   end
 end
