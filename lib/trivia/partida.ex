@@ -349,7 +349,7 @@ defmodule Trivia.Partida do
     {_lider, mayor} = hd(ranking)
     ganadores = for {nombre, puntos} <- ranking, puntos == mayor, do: nombre
 
-    fecha = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+    fecha = NaiveDateTime.local_now() |> NaiveDateTime.truncate(:second) |> NaiveDateTime.to_iso8601() <> "Z"
 
     case Persistencia.agregar_resultado(linea_resultado(terminada, ganadores, fecha)) do
       :ok -> :ok
