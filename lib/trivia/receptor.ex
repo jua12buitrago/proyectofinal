@@ -16,9 +16,7 @@ defmodule Trivia.Receptor do
   """
 
   @doc "Crea el proceso receptor (enlazado al que lo llama) y devuelve su PID."
-  def iniciar do
-    spawn_link(fn -> bucle() end)
-  end
+  def iniciar, do: spawn_link(&bucle/0)
 
   @doc "Detiene el receptor."
   def detener(pid), do: send(pid, :detener)
@@ -36,63 +34,51 @@ defmodule Trivia.Receptor do
   end
 
   @doc "Convierte un evento de la partida en el texto que se muestra al jugador."
-  def formatear({:pregunta, info}) do
-    encabezado =
-      "═══ Pregunta #{info.numero} de #{info.total} - #{String.capitalize(info.tema)} " <>
-        "- Nivel #{nivel_texto(info.nivel)} ═══"
+  def formatear({:pregunta, %{numero: num, total: tot, tema: tema, nivel: nivel, opciones: ops, enunciado: enunciado, tiempo: tiempo}}) do
+    encabezado = "═══ Pregunta #{num} de #{tot} #{String.capitalize(tema)} - Nivel #{nivel_texto(nivel)} ═══"
 
-    opciones =
-      info.opciones
-      |> Enum.map(fn {letra, texto} -> "#{letra}) #{texto}" end)
-      |> Enum.join("   ")
+    opciones = Enum.map_join(ops, "   ", fn {letra, texto} -> "#{letra}) #{texto}" end)
 
     Enum.join(
       [
         "",
         encabezado,
-        info.enunciado,
+        enunciado,
         " " <> opciones,
-        "Tiempo: #{info.tiempo} segundos",
+        "Tiempo: #{tiempo} segundos",
         "Responda con: answer <A|B|C|D>"
       ],
       "\n"
     )
   end
 
-  def formatear({:cierre_ronda, info}) do
-    filas =
-      Enum.map(info.resultados, fn fila ->
-        " #{fila.jugador} #{con_signo(fila.puntos)} (total #{fila.total})"
-      end)
-
-    Enum.join(["", "Respuesta correcta: #{info.correcta}) #{info.texto}" | filas], "\n")
+  def formatear({:cierre_ronda, %{correcta: correcta, texto: texto, resultados: resultados}}) do
+    filas = Enum.map_join(resultados, "\n", &(" #{&1.jugador} #{con_signo(&1.puntos)} (total #{&1.total})"))
+    "\nRespuesta correcta: #{correcta}) #{texto}\n#{filas}"
   end
 
-  def formatear({:fin_partida, info}) do
-    encabezado =
-      "═══ Fin de la partida #{info.id} (#{info.tema}, nivel #{nivel_texto(info.nivel)}) ═══"
+  def formatear({:fin_partida, %{id: id, tema: tema, nivel: nivel, ranking: ranking, ganadores: ganadores, motivo: motivo}}) do
+    encabezado = "═══ Fin de la partida #{id} (#{tema}, nivel #{nivel_texto(nivel)}) ═══"
 
     filas =
-      info.ranking
+      ranking
       |> Enum.with_index(1)
-      |> Enum.map(fn {{jugador, puntos}, posicion} ->
+      |> Enum.map_join("\n", fn {{jugador, puntos}, posicion} ->
         String.pad_trailing("#{posicion}", 4) <> String.pad_trailing(jugador, 14) <> "#{puntos}"
       end)
 
     ganador =
-      case info.ganadores do
+      case ganadores do
         [uno] -> "Ganador: #{uno}"
         varios -> "Ganadores (empate): #{Enum.join(varios, ", ")}"
       end
 
     aviso =
-      if info.motivo == :abandono do
-        ["La partida terminó antes de tiempo porque el jugador la abandonó."]
-      else
-        []
-      end
+      if motivo == :abandono,
+        do: ["La partida terminó antes de tiempo porque el jugador la abandonó."],
+        else: []
 
-    Enum.join(["", encabezado, "#   Jugador       Puntaje"] ++ filas ++ [ganador] ++ aviso, "\n")
+    Enum.join(["", encabezado, "#   Jugador       Puntaje", filas, ganador] ++ aviso, "\n")
   end
 
   def formatear({:reinicio, id}) do
