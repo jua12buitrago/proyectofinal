@@ -21,7 +21,7 @@ defmodule Trivia.GestorPartidas do
   # ── API pública ──────────────────────────────────────────────────────
 
   def start_link(_opciones \\ []) do
-    GenServer.start_link(_MODULE, :ok, name: __MODULE_)
+    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
   @doc """
@@ -31,11 +31,11 @@ defmodule Trivia.GestorPartidas do
   {:error, error}.
   """
   def crear(usuario, cliente_pid, tema, total_preguntas, tiempo_pregunta) do
-    GenServer.call(_MODULE_, {:crear, usuario, cliente_pid, tema, total_preguntas, tiempo_pregunta})
+    GenServer.call(__MODULE__, {:crear, usuario, cliente_pid, tema, total_preguntas, tiempo_pregunta})
   end
 
   @doc "PID de la partida en la que está el usuario: {:ok, pid} o {:error, error}."
-  def ubicar(usuario), do: GenServer.call(_MODULE_, {:ubicar, usuario})
+  def ubicar(usuario), do: GenServer.call(__MODULE__, {:ubicar, usuario})
 
   @doc "Agrega un bot a la partida del usuario."
   def agregar_bot(usuario, dificultad) do
@@ -58,13 +58,13 @@ defmodule Trivia.GestorPartidas do
   end
 
   @doc "Reporte de una partida: su id y su PID actual (se envía con cast)."
-  def reportar(id, pid), do: GenServer.cast(_MODULE_, {:reportar, id, pid})
+  def reportar(id, pid), do: GenServer.cast(__MODULE__, {:reportar, id, pid})
 
   @doc "Aviso de que una partida terminó (se envía con cast)."
-  def finalizada(id), do: GenServer.cast(_MODULE_, {:finalizada, id})
+  def finalizada(id), do: GenServer.cast(__MODULE__, {:finalizada, id})
 
   @doc "Aviso de que el cliente de un usuario desapareció."
-  def cliente_caido(usuario), do: GenServer.cast(_MODULE_, {:cliente_caido, usuario})
+  def cliente_caido(usuario), do: GenServer.cast(__MODULE__, {:cliente_caido, usuario})
 
   @doc """
   Mata el proceso de la partida del usuario para comprobar el reinicio de la
