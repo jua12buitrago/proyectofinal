@@ -2,21 +2,21 @@ defmodule Trivia.Partida do
   @moduledoc """
   Partida de trivia: un GenServer por partida (secciones 5, 6, 7, 8.4 y 8.5).
 
-  Cada partida vive en su propio proceso, bajo el DynamicSupervisor, y atiende
+  Cada partida vive en su propio proceso, bajo el `DynamicSupervisor`, y atiende
   al mismo tiempo el temporizador de la ronda, la respuesta del jugador y las
-  de sus bots. Se registra con restart: :transient: si falla se reinicia
+  de sus bots. Se registra con `restart: :transient`: si falla se reinicia
   desde cero con los mismos argumentos, y si termina bien no.
 
-  La partida entrega sus notificaciones con send/2 a los PID de sus
+  La partida entrega sus notificaciones con `send/2` a los PID de sus
   jugadores (el cliente del creador y los bots), sin distinguir uno de otro.
-  Las notificaciones son mensajes {:trivia, evento}:
+  Las notificaciones son mensajes `{:trivia, evento}`:
 
-  - {:pregunta, info}: enunciado, opciones y tiempo de la ronda
-  - {:cierre_ronda, info}: respuesta correcta y puntajes de la ronda
-  - {:fin_partida, info}: ranking final y ganador
+  - `{:pregunta, info}`: enunciado, opciones y tiempo de la ronda
+  - `{:cierre_ronda, info}`: respuesta correcta y puntajes de la ronda
+  - `{:fin_partida, info}`: ranking final y ganador
 
   Los bots viven en el servidor, así que a ellos se les agrega a la pregunta
-  la respuesta correcta (:correcta) para que puedan decidir. Esa información
+  la respuesta correcta (`:correcta`) para que puedan decidir. Esa información
   nunca se envía a los clientes.
 
   Las reglas (validar respuestas, armar la partida, puntuar una ronda) están en
@@ -54,7 +54,7 @@ defmodule Trivia.Partida do
 
   # ── API pública ──────────────────────────────────────────────────────
 
-  def start_link(argumentos), do: GenServer.start_link(_MODULE_, argumentos)
+  def start_link(argumentos), do: GenServer.start_link(__MODULE__, argumentos)
 
   def agregar_bot(pid, dificultad), do: GenServer.call(pid, {:agregar_bot, dificultad})
   def iniciar(pid), do: GenServer.call(pid, :iniciar)
@@ -66,7 +66,7 @@ defmodule Trivia.Partida do
   def nueva(argumentos) do
     creador = %{nombre: argumentos.creador, tipo: :humano, pid: argumentos.cliente_pid}
 
-    %_MODULE_{
+    %__MODULE__{
       id: argumentos.id,
       creador: argumentos.creador,
       cliente_pid: argumentos.cliente_pid,
@@ -85,10 +85,17 @@ defmodule Trivia.Partida do
 
   def validar_agregar_bot(partida, dificultad) do
     cond do
-      partida.estado != :esperando -> {:error, %Errores.PartidaYaIniciada{id: partida.id}}
-      length(partida.jugadores) >= @max_jugadores -> {:error, %Errores.PartidaLlena{id: partida.id}}
-      dificultad not in [:facil, :dificil] -> {:error, %Errores.DificultadInvalida{dificultad: dificultad}}
-      true -> :ok
+      partida.estado != :esperando ->
+        {:error, %Errores.PartidaYaIniciada{id: partida.id}}
+
+      length(partida.jugadores) >= @max_jugadores ->
+        {:error, %Errores.PartidaLlena{id: partida.id}}
+
+      dificultad not in [:facil, :dificil] ->
+        {:error, %Errores.DificultadInvalida{dificultad: dificultad}}
+
+      true ->
+        :ok
     end
   end
 
@@ -143,7 +150,10 @@ defmodule Trivia.Partida do
   defp puntos_incorrecta(:intermedio), do: -8
   defp puntos_incorrecta(:avanzado), do: -10
 
-  def cerrar_ronda(%{ronda: ronda, jugadores: jugadores, puntajes: puntajes, tiempo_pregunta: tiempo} = partida) do
+  def cerrar_ronda(
+        %{ronda: ronda, jugadores: jugadores, puntajes: puntajes, tiempo_pregunta: tiempo} =
+          partida
+      ) do
     nivel = ronda.pregunta.nivel
     correcta = ronda.pregunta.respuesta
 
@@ -162,15 +172,25 @@ defmodule Trivia.Partida do
 
   defp puntos_de_respuesta(respuesta, correcta, nivel, tiempo) do
     case respuesta do
-      nil -> calcular_puntaje(nivel, :sin_responder, 0, tiempo)
-      %{letra: ^correcta, restantes_ms: ms} -> calcular_puntaje(nivel, :correcta, ms / 1000, tiempo)
-      _otra_letra -> calcular_puntaje(nivel, :incorrecta, 0, tiempo)
+      nil ->
+        calcular_puntaje(nivel, :sin_responder, 0, tiempo)
+
+      %{letra: ^correcta, restantes_ms: ms} ->
+        calcular_puntaje(nivel, :correcta, ms / 1000, tiempo)
+
+      _otra_letra ->
+        calcular_puntaje(nivel, :incorrecta, 0, tiempo)
     end
   end
 
   def linea_resultado(partida, ganadores, fecha) do
-    puntajes = Enum.map_join(partida.jugadores, ",", &"#{&1.nombre}=#{partida.puntajes[&1.nombre]}")
-    Enum.join([fecha, partida.id, partida.tema, partida.nivel, Enum.join(ganadores, ";"), puntajes], "|")
+    puntajes =
+      Enum.map_join(partida.jugadores, ",", &"#{&1.nombre}=#{partida.puntajes[&1.nombre]}")
+
+    Enum.join(
+      [fecha, partida.id, partida.tema, partida.nivel, Enum.join(ganadores, ";"), puntajes],
+      "|"
+    )
   end
 
   # ── Callbacks ────────────────────────────────────────────────────────
@@ -183,11 +203,18 @@ defmodule Trivia.Partida do
   end
 
   @impl true
-  def handle_call({:agregar_bot, dificultad}, _from, %{jugadores: jugadores, puntajes: puntajes} = partida) do
+  def handle_call(
+        {:agregar_bot, dificultad},
+        _from,
+        %{jugadores: jugadores, puntajes: puntajes} = partida
+      ) do
     case validar_agregar_bot(partida, dificultad) do
       :ok ->
         nombre = "bot_#{contar_bots(partida) + 1}"
-        {:ok, bot_pid} = Bot.start_link(%{partida: self(), nombre: nombre, dificultad: dificultad})
+
+        {:ok, bot_pid} =
+          Bot.start_link(%{partida: self(), nombre: nombre, dificultad: dificultad})
+
         bot = %{nombre: nombre, tipo: :bot, pid: bot_pid}
 
         nueva_partida = %{
@@ -196,7 +223,13 @@ defmodule Trivia.Partida do
             puntajes: Map.put(puntajes, nombre, 0)
         }
 
-        respuesta = %{id: partida.id, bot: nombre, dificultad: dificultad, jugadores: length(nueva_partida.jugadores)}
+        respuesta = %{
+          id: partida.id,
+          bot: nombre,
+          dificultad: dificultad,
+          jugadores: length(nueva_partida.jugadores)
+        }
+
         {:reply, {:ok, respuesta}, nueva_partida}
 
       {:error, error} ->
@@ -206,9 +239,10 @@ defmodule Trivia.Partida do
 
   def handle_call(:iniciar, _from, %{jugadores: jugadores} = partida) do
     with :ok <- validar_inicio(partida),
-         {:ok, preguntas} <- BancoPreguntas.sortear(partida.tema, partida.nivel, partida.total_preguntas) do
+         {:ok, preguntas} <-
+           BancoPreguntas.sortear(partida.tema, partida.nivel, partida.total_preguntas) do
       nueva_partida = %{partida | estado: :en_curso, preguntas: preguntas}
-      nombres = Enum.map(jugadores, &(&1.nombre))
+      nombres = Enum.map(jugadores, & &1.nombre)
       respuesta = %{id: partida.id, jugadores: nombres, preguntas: length(preguntas)}
 
       send(self(), :abrir_ronda)
@@ -301,7 +335,13 @@ defmodule Trivia.Partida do
     nueva_partida
   end
 
-  defp enviar_pregunta(%{ronda: %{numero: numero, pregunta: pregunta}, total_preguntas: total, tema: tema, tiempo_pregunta: tiempo, jugadores: jugadores}) do
+  defp enviar_pregunta(%{
+         ronda: %{numero: numero, pregunta: pregunta},
+         total_preguntas: total,
+         tema: tema,
+         tiempo_pregunta: tiempo,
+         jugadores: jugadores
+       }) do
     info = %{
       numero: numero,
       total: total,
@@ -327,7 +367,8 @@ defmodule Trivia.Partida do
 
     notificar(
       nueva_partida,
-      {:cierre_ronda, %{numero: ronda.numero, correcta: correcta, texto: texto, resultados: filas}}
+      {:cierre_ronda,
+       %{numero: ronda.numero, correcta: correcta, texto: texto, resultados: filas}}
     )
 
     if ronda.numero >= total do
@@ -349,7 +390,8 @@ defmodule Trivia.Partida do
     {_lider, mayor} = hd(ranking)
     ganadores = for {nombre, puntos} <- ranking, puntos == mayor, do: nombre
 
-    fecha = NaiveDateTime.local_now() |> NaiveDateTime.truncate(:second) |> NaiveDateTime.to_iso8601() <> "Z"
+    fecha =
+      NaiveDateTime.local_now() |> NaiveDateTime.truncate(:second) |> NaiveDateTime.to_iso8601()
 
     case Persistencia.agregar_resultado(linea_resultado(terminada, ganadores, fecha)) do
       :ok -> :ok
