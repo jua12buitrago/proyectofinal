@@ -26,7 +26,7 @@ defmodule Trivia.GestorJugadores do
   # ── API pública: sesiones ────────────────────────────────────────────
 
   def start_link(_opciones \\ []) do
-    GenServer.start_link(_MODULE, :ok, name: __MODULE_)
+    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
   @doc """
@@ -36,14 +36,14 @@ defmodule Trivia.GestorJugadores do
   :autenticado o :ya_conectado) o {:error, error}.
   """
   def conectar(usuario, clave, pid) do
-    GenServer.call(_MODULE_, {:conectar, usuario, clave, pid})
+    GenServer.call(__MODULE__, {:conectar, usuario, clave, pid})
   end
 
   @doc "Cierra la sesión que tiene ese PID."
-  def desconectar(pid), do: GenServer.call(_MODULE_, {:desconectar, pid})
+  def desconectar(pid), do: GenServer.call(__MODULE__, {:desconectar, pid})
 
   @doc "Usuario que tiene la sesión abierta con ese PID: {:ok, usuario} o {:error, error}."
-  def usuario_de(pid), do: GenServer.call(_MODULE_, {:usuario_de, pid})
+  def usuario_de(pid), do: GenServer.call(__MODULE__, {:usuario_de, pid})
 
   # ── API pública: consultas (se calculan desde el historial) ──────────
 
@@ -171,7 +171,7 @@ defmodule Trivia.GestorJugadores do
     |> Stream.filter(&(is_nil(tema) or &1.tema == tema))
     |> Enum.reduce(%{}, fn partida, acumulado ->
       Enum.reduce(partida.puntajes, acumulado, fn
-        {jugador, puntos}, interno when jugador == "bot" -> interno
+        {jugador, _puntos}, interno when jugador == "bot" -> interno
         {jugador, puntos}, interno ->
           if es_bot?(jugador) do
             interno
