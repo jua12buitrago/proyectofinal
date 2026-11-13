@@ -22,21 +22,21 @@ defmodule Trivia.BancoPreguntas do
 
   @doc "Arranca el banco. Con banco: lista usa esa lista en vez del archivo."
   def start_link(opciones \\ []) do
-    GenServer.start_link(_MODULE, opciones, name: __MODULE_)
+    GenServer.start_link(__MODULE__, opciones, name: __MODULE__)
   end
 
   @doc "Revisa que el tema exista y tenga preguntas suficientes para el reparto."
   def verificar(tema, nivel, total) do
-    GenServer.call(_MODULE_, {:verificar, tema, nivel, total})
+    GenServer.call(__MODULE__, {:verificar, tema, nivel, total})
   end
 
   @doc "Sortea las preguntas de una partida: {:ok, lista} o {:error, error}."
   def sortear(tema, nivel, total) do
-    GenServer.call(_MODULE_, {:sortear, tema, nivel, total})
+    GenServer.call(__MODULE__, {:sortear, tema, nivel, total})
   end
 
   @doc "Lista de los temas del banco, en orden alfabético."
-  def temas, do: GenServer.call(_MODULE_, :temas)
+  def temas, do: GenServer.call(__MODULE__, :temas)
 
   # ── Funciones puras ──────────────────────────────────────────────────
 
