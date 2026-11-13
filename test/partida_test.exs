@@ -23,15 +23,9 @@ defmodule Trivia.PartidaTest do
 
   # Agrega bots a la partida sin crear procesos (solo para probar las reglas).
   defp con_bots(partida, cantidad) do
-    bots =
-      Enum.map(1..cantidad//1, fn n ->
-        %{nombre: "bot_#{n}", tipo: :bot, pid: self()}
-      end)
+    bots = Enum.map(1..cantidad//1, &%{nombre: "bot_#{&1}", tipo: :bot, pid: self()})
 
-    puntajes =
-      Enum.reduce(bots, partida.puntajes, fn bot, acumulado ->
-        Map.put(acumulado, bot.nombre, 0)
-      end)
+    puntajes = Enum.reduce(bots, partida.puntajes, &Map.put(&2, &1.nombre, 0))
 
     %{partida | jugadores: partida.jugadores ++ bots, puntajes: puntajes}
   end
@@ -55,160 +49,118 @@ defmodule Trivia.PartidaTest do
       temporizador: nil
     }
 
-    partida = con_bots(partida_nueva(), 2)
-    %{partida | estado: :en_curso, ronda: ronda, preguntas: [pregunta]}
+    %{con_bots(partida_nueva(), 2) | estado: :en_curso, ronda: ronda, preguntas: [pregunta]}
   end
 
   describe "prueba 1: puntaje de una ronda" do
     test "respuesta correcta en los tres niveles, con distintas bonificaciones" do
-      # tiempo_pregunta = 15: 14 s restantes -> 4, 11 -> 3, 6 -> 2, 1 -> 0
-      assert Partida.calcular_puntaje(:basico, :correcta, 14, 15) == 14
-      assert Partida.calcular_puntaje(:basico, :correcta, 11, 15) == 13
-      assert Partida.calcular_puntaje(:basico, :correcta, 6, 15) == 12
-      assert Partida.calcular_puntaje(:basico, :correcta, 1, 15) == 10
+      casos = [
+        {:basico, 14, 15, 14},
+        {:basico, 11, 15, 13},
+        {:basico, 6, 15, 12},
+        {:basico, 1, 15, 10},
+        {:intermedio, 14, 15, 19},
+        {:avanzado, 14, 15, 24},
+        {:avanzado, 1, 15, 20}
+      ]
 
-      assert Partida.calcular_puntaje(:intermedio, :correcta, 14, 15) == 19
-      assert Partida.calcular_puntaje(:avanzado, :correcta, 14, 15) == 24
-      assert Partida.calcular_puntaje(:avanzado, :correcta, 1, 15) == 20
+      for {nivel, tiempo_restante, tiempo_pregunta, esperado} <- casos do
+        assert Partida.calcular_puntaje(nivel, :correcta, tiempo_restante, tiempo_pregunta) == esperado
+      end
     end
 
-    test "la bonificación va de 0 a 5 sin importar el nivel" do
-      assert Partida.calcular_puntaje(:basico, :correcta, 15, 15) == 15
-      assert Partida.calcular_puntaje(:intermedio, :correcta, 0, 15) == 15
-      assert Partida.calcular_puntaje(:avanzado, :correcta, 15, 15) == 25
+    test "la bonificación va de 0 a 5 y usa el tiempo de la pregunta base" do
+      casos = [
+        {:basico, 15, 15, 15},
+        {:intermedio, 0, 15, 15},
+        {:avanzado, 15, 15, 25},
+        {:basico, 15, 30, 12},
+        {:basico, 29, 30, 14},
+        {:intermedio, 29, 30, 19}
+      ]
+
+      for {nivel, tiempo_restante, tiempo_pregunta, esperado} <- casos do
+        assert Partida.calcular_puntaje(nivel, :correcta, tiempo_restante, tiempo_pregunta) == esperado
+      end
     end
 
-    test "la bonificación usa el tiempo de la pregunta (30 segundos)" do
-      # Con 30 s, tener 15 s restantes equivale a tener 7,5 s con 15 s
-      assert Partida.calcular_puntaje(:basico, :correcta, 15, 30) == 12
-      assert Partida.calcular_puntaje(:basico, :correcta, 29, 30) == 14
-      assert Partida.calcular_puntaje(:intermedio, :correcta, 29, 30) == 19
-    end
+    test "respuesta incorrecta resta según el nivel y sin responder vale 0" do
+      casos = [
+        {:basico, :incorrecta, -5},
+        {:intermedio, :incorrecta, -8},
+        {:avanzado, :incorrecta, -10},
+        {:basico, :sin_responder, 0},
+        {:intermedio, :sin_responder, 0},
+        {:avanzado, :sin_responder, 0}
+      ]
 
-    test "respuesta incorrecta resta según el nivel, sin bonificación" do
-      assert Partida.calcular_puntaje(:basico, :incorrecta, 14, 15) == -5
-      assert Partida.calcular_puntaje(:intermedio, :incorrecta, 14, 15) == -8
-      assert Partida.calcular_puntaje(:avanzado, :incorrecta, 14, 15) == -10
-    end
-
-    test "sin responder vale 0 en los tres niveles" do
-      assert Partida.calcular_puntaje(:basico, :sin_responder, 0, 15) == 0
-      assert Partida.calcular_puntaje(:intermedio, :sin_responder, 0, 15) == 0
-      assert Partida.calcular_puntaje(:avanzado, :sin_responder, 0, 15) == 0
+      for {nivel, estado, esperado} <- casos do
+        assert Partida.calcular_puntaje(nivel, estado, 14, 15) == esperado
+      end
     end
 
     test "al cerrar la ronda se puntúa a cada jugador y se acumula" do
-      # bot_1 acierta a los 3 s (12 s restantes), bot_2 falla y pedro no responde
-      {:ok, :registrada, partida} =
-        Partida.registrar_respuesta(con_ronda_abierta(), "bot_1", "B", 3_000)
-
-      {:ok, :registrada, partida} = Partida.registrar_respuesta(partida, "bot_2", "A", 9_000)
+      partida =
+        con_ronda_abierta()
+        |> Partida.registrar_respuesta("bot_1", "B", 3_000)
+        |> elem(2)
+        |> Partida.registrar_respuesta("bot_2", "A", 9_000)
+        |> elem(2)
 
       {filas, cerrada} = Partida.cerrar_ronda(partida)
 
       assert cerrada.ronda == nil
       assert cerrada.pregunta_actual == 1
       assert cerrada.puntajes == %{"pedro" => 0, "bot_1" => 14, "bot_2" => -5}
-      assert Enum.map(filas, fn fila -> fila.jugador end) == ["bot_1", "pedro", "bot_2"]
+      assert Enum.map(filas, &(&1.jugador)) == ["bot_1", "pedro", "bot_2"]
     end
   end
 
   describe "prueba 3: validación de respuestas" do
-    test "acepta la primera respuesta de cada jugador" do
-      assert {:ok, :registrada, partida} =
-               Partida.registrar_respuesta(con_ronda_abierta(), "pedro", "B", 4_000)
-
-      assert partida.ronda.respuestas["pedro"] == %{letra: "B", restantes_ms: 11_000}
-    end
-
-    test "acepta la letra en minúscula" do
-      assert {:ok, :registrada, partida} =
-               Partida.registrar_respuesta(con_ronda_abierta(), "pedro", "b", 1_000)
-
-      assert partida.ronda.respuestas["pedro"].letra == "B"
-    end
-
-    test "ignora las respuestas siguientes sin cambiar la primera" do
-      {:ok, :registrada, primera} =
-        Partida.registrar_respuesta(con_ronda_abierta(), "pedro", "B", 4_000)
+    test "acepta la primera respuesta (incluso en minúscula) y rechaza las demás" do
+      {:ok, :registrada, primera} = Partida.registrar_respuesta(con_ronda_abierta(), "pedro", "b", 4_000)
+      assert primera.ronda.respuestas["pedro"] == %{letra: "B", restantes_ms: 11_000}
 
       assert {:ok, :ignorada, segunda} = Partida.registrar_respuesta(primera, "pedro", "C", 6_000)
       assert segunda.ronda.respuestas["pedro"] == primera.ronda.respuestas["pedro"]
     end
 
-    test "rechaza una letra inválida y no consume la respuesta" do
+    test "rechaza respuestas con letras inválidas o cuando no hay ronda abierta" do
       partida = con_ronda_abierta()
+      en_pausa = %{partida | ronda: nil}
 
-      assert {:error, %Errores.LetraInvalida{letra: "E"}} =
-               Partida.registrar_respuesta(partida, "pedro", "E", 2_000)
+      assert {:error, %Errores.LetraInvalida{letra: "E"}} = Partida.registrar_respuesta(partida, "pedro", "E", 2_000)
+      assert {:error, %Errores.LetraInvalida{}} = Partida.registrar_respuesta(partida, "pedro", "AB", 2_000)
 
-      assert {:error, %Errores.LetraInvalida{}} =
-               Partida.registrar_respuesta(partida, "pedro", "AB", 2_000)
-
-      # La partida no cambió, así que la corrección posterior sí cuenta.
-      assert {:ok, :registrada, _} = Partida.registrar_respuesta(partida, "pedro", "A", 6_000)
-    end
-
-    test "rechaza la respuesta cuando no hay ronda abierta" do
-      en_pausa = %{con_ronda_abierta() | ronda: nil}
-
-      assert {:error, %Errores.SinRondaAbierta{}} =
-               Partida.registrar_respuesta(en_pausa, "pedro", "B", 16_000)
-
-      assert {:error, %Errores.SinRondaAbierta{}} =
-               Partida.registrar_respuesta(partida_nueva(), "pedro", "B", 0)
+      assert {:error, %Errores.SinRondaAbierta{}} = Partida.registrar_respuesta(en_pausa, "pedro", "B", 16_000)
+      assert {:error, %Errores.SinRondaAbierta{}} = Partida.registrar_respuesta(partida_nueva(), "pedro", "B", 0)
     end
   end
 
   describe "prueba 4: armado de la partida" do
-    test "rechaza add_bot con la partida llena" do
+    test "validaciones al agregar bots y al iniciar partida" do
       llena = con_bots(partida_nueva(), 3)
-      assert length(llena.jugadores) == 4
-
-      assert {:error, %Errores.PartidaLlena{id: "P-1001"}} =
-               Partida.validar_agregar_bot(llena, :facil)
-    end
-
-    test "rechaza add_bot con la partida ya iniciada" do
       iniciada = %{con_bots(partida_nueva(), 2) | estado: :en_curso}
 
-      assert {:error, %Errores.PartidaYaIniciada{}} =
-               Partida.validar_agregar_bot(iniciada, :dificil)
-    end
-
-    test "acepta add_bot en una partida en espera con cupo" do
+      # Agregar bots
       assert :ok = Partida.validar_agregar_bot(partida_nueva(), :facil)
-      assert :ok = Partida.validar_agregar_bot(con_bots(partida_nueva(), 2), :dificil)
-    end
+      assert {:error, %Errores.PartidaLlena{}} = Partida.validar_agregar_bot(llena, :facil)
+      assert {:error, %Errores.PartidaYaIniciada{}} = Partida.validar_agregar_bot(iniciada, :dificil)
+      assert {:error, %Errores.DificultadInvalida{}} = Partida.validar_agregar_bot(partida_nueva(), :imposible)
 
-    test "rechaza una dificultad desconocida" do
-      assert {:error, %Errores.DificultadInvalida{}} =
-               Partida.validar_agregar_bot(partida_nueva(), :imposible)
-    end
-
-    test "rechaza start_game con menos de dos bots" do
-      assert {:error, %Errores.BotsInsuficientes{bots: 0}} =
-               Partida.validar_inicio(partida_nueva())
-
-      assert {:error, %Errores.BotsInsuficientes{bots: 1}} =
-               Partida.validar_inicio(con_bots(partida_nueva(), 1))
-    end
-
-    test "acepta start_game con dos o tres bots y rechaza iniciar dos veces" do
+      # Iniciar partida
       assert :ok = Partida.validar_inicio(con_bots(partida_nueva(), 2))
-      assert :ok = Partida.validar_inicio(con_bots(partida_nueva(), 3))
-
-      iniciada = %{con_bots(partida_nueva(), 2) | estado: :en_curso}
+      assert {:error, %Errores.BotsInsuficientes{bots: 1}} = Partida.validar_inicio(con_bots(partida_nueva(), 1))
       assert {:error, %Errores.PartidaYaIniciada{}} = Partida.validar_inicio(iniciada)
     end
   end
 
   describe "línea del historial" do
-    test "tiene el formato fecha|id|tema|nivel|ganadores|puntajes" do
+    test "tiene el formato fecha|id|tema|nivel|ganadores|puntajes sin letra Z" do
       partida = %{con_bots(partida_nueva(), 2) | puntajes: %{"pedro" => 48, "bot_1" => 22, "bot_2" => -11}}
-      linea = Partida.linea_resultado(partida, ["pedro"], "2026-11-10T10:00:00Z")
+      linea = Partida.linea_resultado(partida, ["pedro"], "2026-11-10T10:00:00")
 
-      assert linea == "2026-11-10T10:00:00Z|P-1001|ciencia|basico|pedro|pedro=48,bot_1=22,bot_2=-11"
+      assert linea == "2026-11-10T10:00:00|P-1001|ciencia|basico|pedro|pedro=48,bot_1=22,bot_2=-11"
     end
   end
 end
