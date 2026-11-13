@@ -19,7 +19,11 @@ defmodule Trivia.BancoPreguntasTest do
 
   # Banco con 12 preguntas de cada nivel en ciencia y 12 de básicas en historia.
   defp banco do
-    ciencia = for nivel <- [:basico, :intermedio, :avanzado], n <- 1..12, do: pregunta("ciencia", nivel, n)
+    ciencia =
+      for nivel <- [:basico, :intermedio, :avanzado],
+          n <- 1..12,
+          do: pregunta("ciencia", nivel, n)
+
     historia = for n <- 1..12, do: pregunta("historia", :basico, n)
     ciencia ++ historia
   end
@@ -35,7 +39,7 @@ defmodule Trivia.BancoPreguntasTest do
       assert length(preguntas) == 10
       assert Enum.all?(preguntas, &(&1.tema == "ciencia"))
 
-      enunciados = Enum.map(preguntas, &(&1.enunciado))
+      enunciados = Enum.map(preguntas, & &1.enunciado)
       assert length(Enum.uniq(enunciados)) == 10
     end
 
@@ -49,7 +53,7 @@ defmodule Trivia.BancoPreguntasTest do
 
       for {nivel, cantidad, esperado} <- casos do
         {:ok, preguntas} = BancoPreguntas.sortear_en(banco(), "ciencia", nivel, cantidad)
-        assert Enum.frequencies_by(preguntas, &(&1.nivel)) == esperado
+        assert Enum.frequencies_by(preguntas, & &1.nivel) == esperado
       end
     end
 
@@ -63,7 +67,7 @@ defmodule Trivia.BancoPreguntasTest do
       sorteos =
         for _vez <- 1..10 do
           {:ok, preguntas} = BancoPreguntas.sortear_en(banco(), "ciencia", :basico, 5)
-          Enum.map(preguntas, &(&1.enunciado))
+          Enum.map(preguntas, & &1.enunciado)
         end
 
       assert length(Enum.uniq(sorteos)) > 1
@@ -83,12 +87,12 @@ defmodule Trivia.BancoPreguntasTest do
   describe "archivo semilla data/questions.json" do
     test "tiene al menos 4 temas con 8 preguntas de cada nivel" do
       banco_real =
-        Path.expand("../data/questions.json", _DIR_)
+        Path.expand("../data/questions.json", __DIR__)
         |> File.read!()
         |> Jason.decode!()
         |> Enum.map(&BancoPreguntas.convertir/1)
 
-      temas = banco_real |> Enum.map(&(&1.tema)) |> Enum.uniq()
+      temas = banco_real |> Enum.map(& &1.tema) |> Enum.uniq()
       assert length(temas) >= 4
 
       for tema <- temas, nivel <- [:basico, :intermedio, :avanzado] do
