@@ -3,11 +3,11 @@ defmodule Trivia.Servidor do
   Proceso del servidor que recibe las peticiones de los clientes y las enruta
   (secciones 8.1 y 8.3).
 
-  Está registrado con su nombre (`Trivia.Servidor`), de modo que el cliente lo
-  ubica con `{Trivia.Servidor, nodo}` sin conocer su PID.
+  Está registrado con su nombre (Trivia.Servidor), de modo que el cliente lo
+  ubica con {Trivia.Servidor, nodo} sin conocer su PID.
 
-  Cada petición llega como `{:peticion, pid_cliente, comando}`. El
-  `pid_cliente` es el proceso receptor del cliente y es lo que identifica su
+  Cada petición llega como {:peticion, pid_cliente, comando}. El
+  pid_cliente es el proceso receptor del cliente y es lo que identifica su
   sesión. Cualquier falla al atender una petición se convierte en un error que
   se devuelve al cliente: el error de un jugador no tumba el servidor.
 
@@ -26,9 +26,7 @@ defmodule Trivia.Servidor do
 
   alias Trivia.{BancoPreguntas, Errores, GestorJugadores, GestorPartidas}
 
-  def start_link(_opciones \\ []) do
-    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
-  end
+  def start_link(opciones \\ []), do: GenServer.start_link(MODULE, :ok, name: __MODULE_)
 
   @impl true
   def init(:ok) do
@@ -55,7 +53,6 @@ defmodule Trivia.Servidor do
 
   # ── Procesamiento de peticiones ──────────────────────────────────────
 
-  # Atiende la petición y garantiza que siempre haya una respuesta.
   defp resolver(cliente_pid, comando) do
     try do
       procesar(cliente_pid, comando)
@@ -70,59 +67,41 @@ defmodule Trivia.Servidor do
     end
   end
 
-  # connect es el único comando que no exige haber iniciado sesión.
   defp procesar(cliente_pid, {:connect, usuario, clave}) do
     GestorJugadores.conectar(usuario, clave, cliente_pid)
   end
 
   defp procesar(cliente_pid, comando) do
-    case GestorJugadores.usuario_de(cliente_pid) do
-      {:ok, usuario} -> ejecutar(usuario, cliente_pid, comando)
-      {:error, error} -> {:error, error}
+    with {:ok, usuario} <- GestorJugadores.usuario_de(cliente_pid) do
+      ejecutar(usuario, cliente_pid, comando)
     end
   end
 
   defp ejecutar(usuario, cliente_pid, :disconnect) do
-    # Primero se cierra la sesión. Después, si el jugador está en una partida,
-    # esta termina según la sección 6.5.
     GestorJugadores.desconectar(cliente_pid)
     GestorPartidas.abandonar(usuario)
     {:ok, :desconectado}
   end
 
-  defp ejecutar(usuario, cliente_pid, {:create_game, tema, preguntas, tiempo}) do
-    GestorPartidas.crear(usuario, cliente_pid, tema, preguntas, tiempo)
+  defp ejecutar(usuario, cliente_pid, {:create_game, tema, preguntas, tiempo}),
+    do: GestorPartidas.crear(usuario, cliente_pid, tema, preguntas, tiempo)
+
+  defp ejecutar(usuario, _, {:add_bot, dificultad}), do: GestorPartidas.agregar_bot(usuario, dificultad)
+  defp ejecutar(usuario, _, :start_game), do: GestorPartidas.iniciar(usuario)
+  defp ejecutar(usuario, _, :leave_game), do: GestorPartidas.abandonar(usuario)
+  defp ejecutar(usuario, _, {:answer, letra}), do: GestorPartidas.responder(usuario, letra)
+  defp ejecutar(usuario, _, :score), do: {:ok, GestorJugadores.score(usuario)}
+  defp ejecutar(_, _, {:ranking, nil}), do: {:ok, GestorJugadores.ranking(nil)}
+
+  defp ejecutar(_, _, {:ranking, tema}) do
+    tema_limpio = tema |> String.trim() |> String.downcase()
+
+    if tema_limpio in BancoPreguntas.temas(),
+      do: {:ok, GestorJugadores.ranking(tema_limpio)},
+      else: {:error, %Errores.TemaInexistente{tema: tema_limpio}}
   end
 
-  defp ejecutar(usuario, _cliente_pid, {:add_bot, dificultad}) do
-    GestorPartidas.agregar_bot(usuario, dificultad)
-  end
-
-  defp ejecutar(usuario, _cliente_pid, :start_game), do: GestorPartidas.iniciar(usuario)
-
-  defp ejecutar(usuario, _cliente_pid, :leave_game), do: GestorPartidas.abandonar(usuario)
-
-  defp ejecutar(usuario, _cliente_pid, {:answer, letra}) do
-    GestorPartidas.responder(usuario, letra)
-  end
-
-  defp ejecutar(usuario, _cliente_pid, :score), do: {:ok, GestorJugadores.score(usuario)}
-
-  defp ejecutar(_usuario, _cliente_pid, {:ranking, nil}) do
-    {:ok, GestorJugadores.ranking(nil)}
-  end
-
-  defp ejecutar(_usuario, _cliente_pid, {:ranking, tema}) do
-    tema = tema |> String.trim() |> String.downcase()
-
-    if tema in BancoPreguntas.temas() do
-      {:ok, GestorJugadores.ranking(tema)}
-    else
-      {:error, %Errores.TemaInexistente{tema: tema}}
-    end
-  end
-
-  defp ejecutar(_usuario, _cliente_pid, comando) do
+  defp ejecutar(_, _, comando) do
     {:error, %Errores.ComandoInvalido{detalle: "Comando desconocido: #{inspect(comando)}"}}
   end
 end
