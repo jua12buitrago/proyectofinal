@@ -26,7 +26,7 @@ defmodule Trivia.Servidor do
 
   alias Trivia.{BancoPreguntas, Errores, GestorJugadores, GestorPartidas}
 
-  def start_link(opciones \\ []), do: GenServer.start_link(MODULE, :ok, name: __MODULE_)
+  def start_link(_opciones \\ []), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 
   @impl true
   def init(:ok) do
