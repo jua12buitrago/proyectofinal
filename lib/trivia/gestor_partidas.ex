@@ -11,7 +11,7 @@ defmodule Trivia.GestorPartidas do
   ese id con otro PID, sabe que fue un reinicio: guarda el PID nuevo y le
   avisa al creador.
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
   use GenServer
