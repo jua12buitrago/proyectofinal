@@ -5,7 +5,7 @@ defmodule Trivia.Nivel do
   Todas las funciones son puras: el cálculo del nivel recibe las líneas del
   historial en lugar de abrir el archivo por su cuenta.
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
 
