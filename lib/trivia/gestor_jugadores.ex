@@ -16,7 +16,7 @@ defmodule Trivia.GestorJugadores do
 
       fecha|id|tema|nivel|ganadores|jugador1=puntos,jugador2=puntos
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
   use GenServer
