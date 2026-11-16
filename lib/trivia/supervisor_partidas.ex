@@ -7,7 +7,7 @@ defmodule Trivia.SupervisorPartidas do
   que se creó, y si termina bien no la vuelve a levantar. La falla de una
   partida nunca afecta a las demás.
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
   use DynamicSupervisor
