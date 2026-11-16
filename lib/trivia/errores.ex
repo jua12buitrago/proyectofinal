@@ -7,7 +7,7 @@ defmodule Trivia.Errores do
   `{:error, %Trivia.Errores.Algo{}}`, y quien las recibe usa
   `Exception.message/1` para obtener el texto que se muestra al jugador.
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
 end
