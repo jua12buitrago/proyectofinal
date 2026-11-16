@@ -7,7 +7,6 @@ defmodule Trivia.GestorJugadoresTest do
   alias Trivia.GestorJugadores
 
   # Líneas de historial: fecha|id|tema|nivel|ganadores|puntajes
-  # (Se retira la 'Z' de la fecha para coincidir con la actualización a hora local)
   @lineas [
     "2026-10-01T10:00:00|P-1001|ciencia|basico|pedro|pedro=48,bot_1=22,bot_2=-11",
     "2026-10-02T10:00:00|P-1002|historia|basico|bot_1|pedro=13,bot_1=30,bot_2=5",
