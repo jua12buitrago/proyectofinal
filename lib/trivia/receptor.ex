@@ -11,7 +11,7 @@ defmodule Trivia.Receptor do
   Solo muestra lo que recibe; no tiene lógica de juego y nunca ve la respuesta
   correcta de una pregunta abierta.
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
 
