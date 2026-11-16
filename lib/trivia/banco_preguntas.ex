@@ -11,7 +11,7 @@ defmodule Trivia.BancoPreguntas do
   Las funciones que terminan en _en son puras (reciben el banco como
   argumento) y son las que se prueban con ExUnit.
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
   use GenServer
