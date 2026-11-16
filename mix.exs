@@ -1,7 +1,7 @@
 defmodule Trivia.MixProject do
   @moduledoc """
   Definición del proyecto Mix de la Trivia Concurrente.
-  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
   use Mix.Project
