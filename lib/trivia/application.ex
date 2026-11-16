@@ -1,7 +1,7 @@
 defmodule Trivia.Application do
   @moduledoc """
   Arranque de la aplicación y rol de cada nodo (sección 8.2).
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
   use Application
