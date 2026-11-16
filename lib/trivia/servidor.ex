@@ -18,7 +18,7 @@ defmodule Trivia.Servidor do
       {:add_bot, :facil | :dificil}   :start_game   :leave_game
       {:answer, letra}                :score   {:ranking, tema | nil}
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
   use GenServer
