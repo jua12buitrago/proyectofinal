@@ -22,7 +22,7 @@ defmodule Trivia.Partida do
   Las reglas (validar respuestas, armar la partida, puntuar una ronda) están en
   funciones públicas puras para poder probarlas sin procesos.
 
-  - autor: Juan Manuel Castaño Buitrago
+  - autor: Juan Manuel Castaño Buitrago, Christian David Lopera Castaño, Samuel Mejia Guerrero
   - fecha: Noviembre del 2026
   """
   use GenServer, restart: :transient
